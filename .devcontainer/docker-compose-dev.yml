@@ -1,0 +1,21 @@
+name: probes-java
+
+services:
+  probes_devcontainer:
+    image: maven-3.8.3-openjdk-17-did
+    build:
+      context: services/devcontainer/build
+      dockerfile: Dockerfile
+    command: sleep infinity
+    container_name: probes_devcontainer
+    env_file: .env
+    ports:
+      - '8080:8080'
+    environment:
+      COMPOSE_PROJECT_NAME: 'probes-java'
+    volumes:
+      # Mount the project directory to the same path as on host
+      - ${WORKSPACE_PATH_ON_HOST}:${WORKSPACE_PATH_ON_HOST}:cached
+      - /var/run/docker.sock:/var/run/docker.sock
+      - ~/.ssh:/root/.ssh:ro
+      - ~/.gitconfig:/root/.gitconfig:ro

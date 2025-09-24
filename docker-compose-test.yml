@@ -1,0 +1,18 @@
+name: probes-java
+
+services:
+
+  spring-app:
+    image: openjdk:17-jdk-slim
+    command: ['java', '-jar', '/app/health-probe-demo-0.0.1-SNAPSHOT.jar']
+    volumes:
+      - ${WORKSPACE_PATH_ON_HOST}/target:/app
+    ports:
+      - "8080:8080"
+    healthcheck:
+      test: ["CMD", "curl", "--fail", "http://localhost:8080/actuator/health/liveness"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 30s
+    restart: unless-stopped
