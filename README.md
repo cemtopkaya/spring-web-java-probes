@@ -4,8 +4,14 @@ Spring Boot uygulamalarının **Liveness**, **Readiness**, ve **Startup** probla
 
 İstediğiniz senaryo için tam bir örnek proje hazırladım. Bu proje aşağıdaki bileşenleri içerecektir:
 
-1.  **Spring Boot Uygulaması**: `management.endpoint.health.probes.enabled=true` yapılandırmasını kullanarak prob uç noktalarını etkinleştireceğiz.
-2.  **docker-compose.yml**: Docker Compose ile uygulamayı ayağa kaldırırken, **Liveness**, **Readiness** ve **Startup** problarını nasıl belirtebileceğimizi gösterecek.
+1.  **Spring Boot Uygulaması**: `management.endpoint.health.probes.enabled=true` yapılandırmasını kullanarak prob uç noktalarını etkinleştireceğiz. Bu aşamada ornek1-mustakil modülünü koşturacağız. Uygulama ayağa kalkınca http://localhost:8080/actuator/\* adreslerinden liveness ve readiness problarını kontrol edeceğiz.
+
+2.  **docker-compose-test.yml**: Docker Compose ile uygulamayı ayağa kaldırırken, **Liveness**, **Readiness** problarını nasıl belirtebileceğimizi göstereceğiz ancak bu kez uygulamanın RabbitMQ ve DB bağımlılıkları bu durumları etkileyecek.
+
+**Kaynaklar:**
+
+- https://spring.io/blog/2020/03/25/liveness-and-readiness-probes-with-spring-boot
+- https://docs.spring.io/spring-boot/api/rest/actuator/index.html
 
 ---
 
@@ -227,36 +233,9 @@ management.endpoint.health.group.liveness.include=livenessState
 management.endpoint.health.group.readiness.include=readinessState
 ```
 
-**`src/main/java/com/example/healthprobedemo/HealthProbeDemoApplication.java`**:
-
-Basit bir ana sınıf ve bir örnek REST denetleyicisi.
-
-```java
-package com.example.healthprobedemo;
-
-import org.springframework.boot.SpringApplication;
-import org.springframework.boot.autoconfigure.SpringBootApplication;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.RestController;
-
-@SpringBootApplication
-@RestController
-public class HealthProbeDemoApplication {
-
-    public static void main(String[] args) {
-        SpringApplication.run(HealthProbeDemoApplication.class, args);
-    }
-
-    @GetMapping("/")
-    public String home() {
-        return "Merhaba, Docker Compose ve Health Probes!";
-    }
-}
-```
-
 ---
 
-### 2. Docker Compose Dosyası (`docker-compose.yml`)
+### 2. Docker Compose Dosyası (`docker-compose-test.yml`)
 
 Bu dosya, Docker konteynerinizi ayağa kaldırmak ve **Liveness**, **Readiness** ve **Startup** problarını tanımlamak için en kritik bileşendir. `healthcheck` bölümü bu probları yönetmek için kullanılır.
 
@@ -270,7 +249,7 @@ services:
     volumes:
       - ${WORKSPACE_PATH_ON_HOST}/target:/app
     ports:
-      - '8080:8080'
+      - '8090:8080'
     healthcheck:
       test: ['CMD', 'curl', '--fail', 'http://localhost:8080/actuator/health/liveness']
       interval: 10s
@@ -278,11 +257,22 @@ services:
       retries: 3
       start_period: 30s
     restart: unless-stopped
+
+  rabbitmq:
+    image: rabbitmq:3.8-management
+    ports:
+      - '5672:5672'
+      - '15672:15672'
+    healthcheck:
+      test: ['CMD', 'rabbitmq-diagnostics', 'check_port_connectivity']
+      interval: 5s
+      timeout: 10s
+      retries: 5
 ```
 
-Yukarıdaki `docker-compose.yml` dosyası, `healthcheck` mekanizmasını kullanarak bir prob örneği gösteriyor. Bu örnekte, `healthcheck` **Liveness** probunu kullanarak konteynerin durumunu izler.
+Yukarıdaki `docker-compose-test.yml` dosyası, `healthcheck` mekanizmasını kullanarak bir prob örneği gösteriyor. Bu örnekte, `healthcheck` **Liveness** probunu kullanarak konteynerin durumunu izler.
 
-- `test: ["CMD", "curl", "--fail", "http://localhost:8080/actuator/health/liveness"]`: Bu komut, konteyner içinden `/actuator/health/liveness` uç noktasına bir `curl` isteği gönderir. Eğer istek başarılı olursa (`200 OK` dönüyorsa), prob başarılı kabul edilir.
+- `test: ["CMD", "curl", "--fail", "http://localhost:8090/actuator/health/liveness"]`: Bu komut, konteyner içinden `/actuator/health/liveness` uç noktasına bir `curl` isteği gönderir. Eğer istek başarılı olursa (`200 OK` dönüyorsa), prob başarılı kabul edilir.
 - `interval: 10s`: Her 10 saniyede bir prob kontrolü yapılır.
 - `timeout: 5s`: Prob komutunun tamamlanması için maksimum bekleme süresi.
 - `retries: 3`: Bir probun başarısız olduğu durumda, konteynerin `unhealthy` olarak işaretlenmeden önce kaç kez daha deneme yapılacağı.
@@ -303,6 +293,10 @@ Yukarıdaki `docker-compose.yml` dosyası, `healthcheck` mekanizmasını kullana
 │   │       └── application.properties
 ├── pom.xml
 └── docker-compose.yml
+```
+
+```sh
+docker compose -f ./docker-compose-test.yml up
 ```
 
 ### Projeyi Çalıştırma Adımları

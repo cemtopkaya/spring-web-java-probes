@@ -1,18 +1,30 @@
 name: probes-java
 
 services:
-
   spring-app:
     image: openjdk:17-jdk-slim
-    command: ['java', '-jar', '/app/health-probe-demo-0.0.1-SNAPSHOT.jar']
+    command: ['java', '-jar', '/app/ornek2-bagimli-0.0.1-SNAPSHOT.jar']
     volumes:
-      - ${WORKSPACE_PATH_ON_HOST}/target:/app
+      - ${WORKSPACE_PATH_ON_HOST}/ornek2-bagimli/target:/app
     ports:
-      - "8080:8080"
+      - '8090:8080'
     healthcheck:
-      test: ["CMD", "curl", "--fail", "http://localhost:8080/actuator/health/liveness"]
+      test: ['CMD', 'curl', '--fail', 'http://localhost:8080/actuator/health/liveness']
       interval: 10s
       timeout: 5s
       retries: 3
       start_period: 30s
     restart: unless-stopped
+    depends_on:
+      - rabbitmq
+
+  rabbitmq:
+    image: rabbitmq:3.8-management
+    ports:
+      - '5672:5672'
+      - '15672:15672'
+    healthcheck:
+      test: ['CMD', 'rabbitmq-diagnostics', 'check_port_connectivity']
+      interval: 5s
+      timeout: 10s
+      retries: 5

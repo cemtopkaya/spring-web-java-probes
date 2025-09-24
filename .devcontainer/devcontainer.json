@@ -45,6 +45,8 @@
         "SonarSource.sonarlint-vscode", // Finds and highlights bugs and security issues.
         "NicolasVuillamy.vscode-groovy-lint", // Linter for Groovy files.
         "EditorConfig.EditorConfig", // Ensures consistent code styles across editors.
+        "mikeburgh.xml-format", // XML formatter for better readability.
+        "redhat.vscode-xml", // XML language support.
         // Language and Snippets
         "dsznajder.es7-react-js-snippets", // Provides snippets for ES7 and React.
         "formulahendry.auto-rename-tag", // Automatically renames paired HTML/XML tags.
@@ -75,10 +77,11 @@
         "bpruitt-goddard.mermaid-markdown-syntax-highlighting", // Markdown syntax support for the Mermaid charting language
         "lostintangent.vsls-whiteboard", // Provides a collaborative whiteboard for Live Share sessions.
         // Java Development
-        "vscjava.vscode-java-pack", // Full Java development pack (language support, debugger, etc.)
-        "vscjava.vscode-java-dependency", // A lightweight extension to provide additional Java project explorer features.
+        "vscjava.vscode-java-debug", // Java Debugger for Visual Studio Code
         "redhat.java", // Language support for Java ™ for Visual Studio Code
-        "redhat.vscode-xml", // XML language support.
+        "vscjava.vscode-java-dependency", // A lightweight extension to provide additional Java project explorer features.
+        "vscjava.vscode-java-test", // Test runner and debugger for Java
+        "vscjava.vscode-maven", // Apache Maven support in VS Code
         "seanmcshane.jar-viewer-and-decompiler", // View and decompile JAR files.
         // Productivity and Workflow
         "Gruntfuggly.todo-tree", // Manage and view TODO comments across codebase.
@@ -136,6 +139,11 @@
         "java.jdt.ls.vmargs": "-javaagent:/root/.m2/repository/org/projectlombok/lombok/1.18.36/lombok-1.18.36.jar",
         // ==== redhat.vscode-xml Extension Settings ========================================================
         "xml.java.home": "/usr/lib/jvm/java-17/bin",
+        // ==== mikeburgh.xml-format Extension Settings ========================================================
+        "[xml]": {
+          "editor.defaultFormatter": "mikeburgh.xml-format",
+          "editor.tabSize": 2
+        },
         // ==== Prettier settings ===========================================================================
         "prettier.trailingComma": "none",
         "prettier.singleQuote": true,
