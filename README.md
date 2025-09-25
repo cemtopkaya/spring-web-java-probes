@@ -1,46 +1,92 @@
 # HEALTH PROBE DEMO
 
-Spring Boot uygulamalarının **Liveness**, **Readiness**, ve **Startup** probları, özellikle Kubernetes gibi container orchestration ortamlarında uygulamanın sağlık durumunu doğru bir şekilde yönetmek için oldukça önemlidir. Docker Compose ile bu problemleri kullanarak bir uygulama ayağa kaldırarak, benzer bir yapıyı daha basit bir ortamda simüle edebiliriz.
+Spring Boot uygulamalarının **Liveness**, **Readiness**, ve **Startup** probları, özellikle Kubernetes gibi container orchestration ortamlarında uygulamanın sağlık durumunu doğru bir şekilde yönetmek için oldukça önemlidir.
 
-İstediğiniz senaryo için tam bir örnek proje hazırladım. Bu proje aşağıdaki bileşenleri içerecektir:
+Docker'daki `HEALTHCHECK`, temel bir sağlık kontrolü sağlar ancak Kubernetes'in `startupProbe`, `livenessProbe` ve `readinessProbe` gibi ayrı ve daha gelişmiş proplarına sahip değildir. Kubernetes, bu propları kullanarak uygulamanın yaşam döngüsünü daha hassas bir şekilde yönetir:
+
+`startupProbe`: Yalnızca başlangıç aşamasını yönetir.
+
+`livenessProbe`: Uygulama çalıştığı sürece sürekli olarak canlılık durumunu kontrol eder.
+
+`readinessProbe`: Uygulamanın dışarıdan gelen trafiği kabul etmeye hazır olup olmadığını belirler.
+
+Bu üç prob, özellikle mikroservis mimarilerinde veya karmaşık uygulamalarda çok daha detaylı ve güvenilir bir kontrol sağlar.
+
+`Dockerfile` ve `docker-compose.yml` içinde `HEALTHCHECK` özelliğini kullanarak konteynerinizin startup ve liveness kontrollerini yönetebilirsiniz. Ancak, Kubernetes'teki gibi startup, liveness ve readiness proplarını ayrı ayrı tanımlama imkanı yoktur. Docker Compose, bu kontrolleri tek bir `healthcheck` bloğu altında birleştirir.
+
+Aşağıda kullanılacak bayrakların açıklamaları (ortak oldukları için burada topladım):
+
+- `test`: Bu kısım, sağlık kontrolünün yapılacağı komutu tanımlar. Sizin `CMD` (`curl`) komutunuzu burada kullanabilirsiniz. `curl --fail` komutu, 200 olmayan HTTP durum kodlarında (örneğin 404, 500) başarısız olacaktır.
+
+- `--interval=10s`: Her 10 saniyede bir sağlık kontrolü yapar.
+
+- `--timeout=5s`: Komutun tamamlanması için maksimum bekleme süresi 5 saniyedir.
+
+- `--start-period=30s`: Bu parametre, Kubernetes'teki startupProbe'a en çok benzeyen kısımdır. Konteyner başladıktan sonra ilk 30 saniye içinde yapılan kontrollerin başarısız olması durumunda, Docker bunu hemen "başarısız" olarak işaretlemez. Bu süre, uygulamanın tamamen başlaması için tanınan bir "lütuf süresidir".
+
+- `--retries=3`: start-period bittikten sonra, eğer `HEALTHCHECK` komutu üç kez üst üste başarısız olursa, konteyner `unhealthy` olarak işaretlenir.
+
+
+*Dockerfile için:*
+
+```dockerfile
+HEALTHCHECK --interval=10s --timeout=5s --start-period=30s --retries=3 \
+  CMD curl --fail http://localhost:8080/actuator/health/liveness || exit 1
+```
+
+*Docker Compose için:*
+
+```yaml
+services:
+  spring-app:
+    image: spring-app-image:latest
+    ports:
+      - "8080:8080"
+    healthcheck:
+      test: ["CMD", "curl", "--fail", "http://localhost:8080/actuator/health/liveness"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 30s
+```
+
+
+Tüm probe senaryolarını öğrenmek ve denemek için aşağıdaki 2 maddeyi takip edeliriz:
 
 1.  **Spring Boot Uygulaması**: `management.endpoint.health.probes.enabled=true` yapılandırmasını kullanarak prob uç noktalarını etkinleştireceğiz. Bu aşamada ornek1-mustakil modülünü koşturacağız. Uygulama ayağa kalkınca http://localhost:8080/actuator/\* adreslerinden liveness ve readiness problarını kontrol edeceğiz.
 
 2.  **docker-compose-test.yml**: Docker Compose ile uygulamayı ayağa kaldırırken, **Liveness**, **Readiness** problarını nasıl belirtebileceğimizi göstereceğiz ancak bu kez uygulamanın RabbitMQ ve DB bağımlılıkları bu durumları etkileyecek.
 
+
+Oluşturduğunuz Spring Boot uygulamasının `application.properties` dosyasına göre, Spring Boot uygulamanızda aşağıdaki Actuator uç noktaları oluşur:
+
+- Web Uç Noktaları
+
+    `management.endpoints.web.exposure.include=*` ayarı sayesinde, tüm Actuator uç noktaları web üzerinden erişilebilir hale gelir. Genel Actuator uç noktalarına **`/actuator`** path'i üzerinden erişebilirsiniz.
+
+    Bu, aşağıdaki ana grupların hepsini içerir:
+
+    - `/actuator`: Tüm Actuator uç noktalarının listesini gösteren ana sayfa.
+    - `/actuator/health`: Uygulamanın genel sağlık durumunu gösterir.
+    - `/actuator/info`: Uygulama hakkındaki özel bilgileri (versiyon, ad vb.) gösterir.
+    - `/actuator/beans`: Spring IoC konteynerindeki tüm bean'lerin listesini gösterir.
+    - `/actuator/env`: Uygulama ortamı özelliklerini gösterir.
+    - `/actuator/metrics`: Uygulama ve sistem metriklerini (CPU kullanımı, bellek vb.) gösterir.
+    - `/actuator/shutdown`: Uygulamayı güvenli bir şekilde kapatır (varsayılan olarak devre dışıdır).
+
+- Sağlık Probu Uç Noktaları
+
+    `management.endpoint.health.probes.enabled=true` yapılandırması, prob uç noktalarını etkinleştirir. Bu ayar ve tanımladığınız sağlık grupları (`liveness` ve `readiness`) ile birlikte aşağıdaki özel prob uç noktaları aktif olur:
+
+    - `/actuator/health/liveness`: **Liveness probu** için özel bir uç noktadır. Bu, uygulamanın çalışır durumda olup olmadığını ve kendi kendini yeniden başlatmaya gerek olup olmadığını belirler. Yanıt olarak **"UP"** veya **"DOWN"** durumlarından birini döner.
+    - `/actuator/health/readiness`: **Readiness probu** için özel bir uç noktadır. Uygulamanın gelen trafiği işlemeye hazır olup olmadığını belirler. Yanıt olarak **"UP"** veya **"DOWN"** durumlarından birini döner.
+    - `/actuator/health/probes`: Tanımlanan tüm prob gruplarını (`liveness`, `readiness`) listeler ve bunların genel durumunu gösterir.
+    - Özellikle container orchestration ortamlarında (Docker, Kubernetes) kullanılan sağlık probları ise **`/actuator/health/liveness`** ve **`/actuator/health/readiness`** uç noktalarıdır.
+
 **Kaynaklar:**
 
 - https://spring.io/blog/2020/03/25/liveness-and-readiness-probes-with-spring-boot
 - https://docs.spring.io/spring-boot/api/rest/actuator/index.html
-
----
-
-Oluşturduğunuz `application.properties` dosyasına göre, Spring Boot uygulamanızda aşağıdaki Actuator uç noktaları oluşur:
-
-### Web Uç Noktaları
-
-`management.endpoints.web.exposure.include=*` ayarı sayesinde, tüm Actuator uç noktaları web üzerinden erişilebilir hale gelir. Genel Actuator uç noktalarına **`/actuator`** path'i üzerinden erişebilirsiniz.
-
-Bu, aşağıdaki ana grupların hepsini içerir:
-
-- `/actuator`: Tüm Actuator uç noktalarının listesini gösteren ana sayfa.
-- `/actuator/health`: Uygulamanın genel sağlık durumunu gösterir.
-- `/actuator/info`: Uygulama hakkındaki özel bilgileri (versiyon, ad vb.) gösterir.
-- `/actuator/beans`: Spring IoC konteynerindeki tüm bean'lerin listesini gösterir.
-- `/actuator/env`: Uygulama ortamı özelliklerini gösterir.
-- `/actuator/metrics`: Uygulama ve sistem metriklerini (CPU kullanımı, bellek vb.) gösterir.
-- `/actuator/shutdown`: Uygulamayı güvenli bir şekilde kapatır (varsayılan olarak devre dışıdır).
-
----
-
-### Sağlık Probu Uç Noktaları
-
-`management.endpoint.health.probes.enabled=true` yapılandırması, prob uç noktalarını etkinleştirir. Bu ayar ve tanımladığınız sağlık grupları (`liveness` ve `readiness`) ile birlikte aşağıdaki özel prob uç noktaları aktif olur:
-
-- `/actuator/health/liveness`: **Liveness probu** için özel bir uç noktadır. Bu, uygulamanın çalışır durumda olup olmadığını ve kendi kendini yeniden başlatmaya gerek olup olmadığını belirler. Yanıt olarak **"UP"** veya **"DOWN"** durumlarından birini döner.
-- `/actuator/health/readiness`: **Readiness probu** için özel bir uç noktadır. Uygulamanın gelen trafiği işlemeye hazır olup olmadığını belirler. Yanıt olarak **"UP"** veya **"DOWN"** durumlarından birini döner.
-- `/actuator/health/probes`: Tanımlanan tüm prob gruplarını (`liveness`, `readiness`) listeler ve bunların genel durumunu gösterir.
-- Özellikle container orchestration ortamlarında (Docker, Kubernetes) kullanılan sağlık probları ise **`/actuator/health/liveness`** ve **`/actuator/health/readiness`** uç noktalarıdır.
 
 ---
 
@@ -277,7 +323,6 @@ Yukarıdaki `docker-compose-test.yml` dosyası, `healthcheck` mekanizmasını ku
 - `timeout: 5s`: Prob komutunun tamamlanması için maksimum bekleme süresi.
 - `retries: 3`: Bir probun başarısız olduğu durumda, konteynerin `unhealthy` olarak işaretlenmeden önce kaç kez daha deneme yapılacağı.
 - `start_period: 30s`: Uygulamanın tam olarak başlaması için verilen süre. Bu süre boyunca yapılan prob başarısızlıkları `retries` sayısına dahil edilmez. Bu, özellikle uygulamanızın ilk başlatma anında yavaş çalışması durumunda, **Startup** probu gibi davranır.
-
 
 ```sh
 docker compose -f ./docker-compose-test.yml up
