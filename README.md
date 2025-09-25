@@ -278,22 +278,6 @@ Yukarıdaki `docker-compose-test.yml` dosyası, `healthcheck` mekanizmasını ku
 - `retries: 3`: Bir probun başarısız olduğu durumda, konteynerin `unhealthy` olarak işaretlenmeden önce kaç kez daha deneme yapılacağı.
 - `start_period: 30s`: Uygulamanın tam olarak başlaması için verilen süre. Bu süre boyunca yapılan prob başarısızlıkları `retries` sayısına dahil edilmez. Bu, özellikle uygulamanızın ilk başlatma anında yavaş çalışması durumunda, **Startup** probu gibi davranır.
 
-**Projenin Dizin Yapısı:**
-
-```
-.
-├── src/
-│   ├── main/
-│   │   ├── java/
-│   │   │   └── com/
-│   │   │       └── example/
-│   │   │           └── healthprobedemo/
-│   │   │               └── HealthProbeDemoApplication.java
-│   │   └── resources/
-│   │       └── application.properties
-├── pom.xml
-└── docker-compose.yml
-```
 
 ```sh
 docker compose -f ./docker-compose-test.yml up
