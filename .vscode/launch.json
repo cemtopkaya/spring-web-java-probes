@@ -9,14 +9,16 @@
       "type": "java",
       "request": "launch",
       "mainClass": "com.example.healthprobesimple.Application",
-      "projectName": "ornek1-mustakil"
+      "projectName": "ornek1-mustakil",
+      "preLaunchTask": "maven: package"
     },
     {
       "name": "RabbitMQ+HealthProbe",
       "type": "java",
       "request": "launch",
       "mainClass": "com.example.healthproberabbit.Application",
-      "projectName": "ornek2-bagimli"
+      "projectName": "ornek2-bagimli",
+      "preLaunchTask": "maven: package"
     },
     {
       "type": "java",

@@ -1,0 +1,22 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "maven: package",
+      "type": "shell",
+      "command": "mvn clean package -DskipTests",
+      "group": "build",
+      "problemMatcher": [],
+      "detail": "$(tools) Build the Maven project."
+    },
+    {
+      "type": "java (build)",
+      "paths": ["${workspace}"],
+      "isFullBuild": true,
+      "group": "build",
+      "problemMatcher": [],
+      "label": "java (build): Build Workspace",
+      "detail": "$(tools) Build all the Java projects in workspace."
+    }
+  ]
+}
