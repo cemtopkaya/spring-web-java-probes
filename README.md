@@ -123,12 +123,12 @@ spec:
 - `probes`: Kubernetes gibi konteyner orkestrasyon sistemlerinde sağlık kontrolleri için kullanılan özel yaşam ve hazır olma kontrollerini ([`liveness`](https://docs.spring.io/spring-boot/reference/features/spring-application.html#features.spring-application.application-availability.liveness)/[`readiness`](https://docs.spring.io/spring-boot/reference/features/spring-application.html#features.spring-application.application-availability.readiness) probes) sunar.
 
 Hepsi uygulamanın çalışma durumu ve bilgisi ile ilgili olsalar da farklı amaçlara hizmet ederler. `management.endpoints.web.exposure.include=health,info,probes` ifadesi bu üç endpoint'in HTTP üzerinden erişilebilir olduğunu belirtir, hepsi ayrı ayrı da kullanılabilir ve hepsi uygulama yönetimi için ortak ama farklı işlevler sunar. Kullanıcı gereksinimine göre içlerinden biri veya birkaçı web üzerinden sağlanabilir.
+
 - `health` genel sağlık durumu için,
 - `info` uygulama bilgileri için
 - ve `probes` Kubernetes ortamındaki container sağlık kontrolleri içindir.
 
 Bu üç endpoint birbirinden bağımsızdır ve ayrı ayrı da kullanılabilir. Ancak genellikle birlikte yapılandırılırlar çünkü her biri farklı bir yönetim ve izleme amacına hizmet eder. Yönetim uç noktalarının hangilerinin web üzerinden erişilebilir olacağını belirtmek için aynı property altında virgülle ayrılarak birden fazla endpoint belirtilebilir (`management.endpoints.web.exposure.include=health,probes,info` gibi).
-
 
 Tüm probe senaryolarını öğrenmek ve denemek için aşağıdaki 2 maddeyi takip edebiliriz:
 
@@ -195,6 +195,104 @@ management:
           include: livenessState
         readiness:
           include: readinessState, db, rabbit, kafka, diskSpace, memoryCache
+```
+
+Şimdi hangi ayarın hangi sonucu ürettiğine bir göz atalım.
+
+```properties
+management.endpoints.web.exposure.include=health
+```
+
+http://localhost:8080/actuator/health Adresine erişim sağlar ve `{"status":"UP"}` JSON cevabı döner. liveness ve readiness probe'ları yok
+
+---
+
+```properties
+management.endpoints.web.exposure.include=probes
+```
+
+Sadece probes eklenirse, health endpoint’i devre dışı kalır. Bizim istediğimiz uç noktalara gidemeyiz. Unutmayın bu probe'lar HEALTH PROBES diye geçiyor ;)
+
+---
+
+Demek ki hem health hem probes birlikte olmalı:
+
+```properties
+management.endpoints.web.exposure.include=health,probes
+```
+
+health ve probes birlikte eklenirse:
+http://localhost:8080/actuator çıktısı aşağıdaki gibi olur:
+
+```json
+{
+  "_links": {
+    "self": {
+      "href": "http://localhost:8080/actuator",
+      "templated": false
+    },
+    "health": {
+      "href": "http://localhost:8080/actuator/health",
+      "templated": false
+    },
+    "health-path": {
+      "href": "http://localhost:8080/actuator/health/{*path}",
+      "templated": true
+    }
+  }
+}
+```
+
+http://localhost:8080/actuator/health çıktısı `{ "status": "UP" }` gibi olur ancak yine sağlık probe'larımızın http istekleriyle durumlarını öğrenebileceğimiz uç noktları yok!
+
+---
+
+```properties
+management.endpoint.health.probes.enabled=true
+```
+
+http://localhost:8080/actuator/health çıktısı aşağıdaki gibi olur:
+```json
+{
+    "status": "UP",
+    "groups": [
+        "liveness",
+        "readiness"
+    ]
+}
+```
+Aşağıdaki uç noktalar web üzerinden erişilebilir hale gelsin diye eklenmiştir:
+http://localhost:8080/actuator/health/liveness
+`{"status":"UP"}`
+http://localhost:8080/actuator/health/readiness
+`{"status":"UP"}`
+
+---
+
+Bu durumda k8s içinde kullanabileceğimiz çıktıyı üretmesi için kullanmamız gerekenler:
+
+```properties
+# Web sunucusu portu
+server.port=8080
+
+# Veritabanı (H2) ayarları
+spring.datasource.url=jdbc:h2:mem:testdb
+spring.datasource.driverClassName=org.h2.Driver
+spring.datasource.username=sa
+spring.datasource.password=password
+spring.jpa.database-platform=org.hibernate.dialect.H2Dialect
+spring.h2.console.enabled=true
+spring.h2.console.path=/h2-console
+
+# RabbitMQ ayarları (Docker Compose servisi ile eşleşmeli)
+spring.rabbitmq.host=rabbitmq
+spring.rabbitmq.port=5672
+
+# Actuator uç noktaları
+management.endpoints.web.exposure.include=health,probes
+management.endpoint.health.probes.enabled=true
+management.endpoint.health.group.liveness.include=livenessState
+management.endpoint.health.group.readiness.include=readinessState,rabbit,db
 ```
 
 **Kaynaklar:**
